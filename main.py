@@ -80,6 +80,14 @@ def main() -> None:
         default=float(os.environ.get("APPROVAL_THRESHOLD", 7.5)),
         help="Minimum Critic score (0–10) required to approve the report (default: 7.5).",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Validate the CSV and print dataset metadata without calling any LLM. "
+            "Useful for checking data schema before spending API credits."
+        ),
+    )
     args = parser.parse_args()
 
     csv_path = args.csv_path
@@ -96,6 +104,15 @@ def main() -> None:
 
     battery_id, date_str = _infer_metadata(csv_path)
     print(f"Asset: {battery_id}  |  Date: {date_str}  |  Rows: {len(df)}")
+
+    if args.dry_run:
+        scenarios = df["SCENARIO_NAME"].unique().tolist()
+        schedules = df["SCHEDULE_TYPE"].unique().tolist()
+        print(f"Scenarios : {scenarios}")
+        print(f"Schedules : {schedules}")
+        print(f"Columns   : {list(df.columns)}")
+        print("\nDry-run complete — schema is valid. Remove --dry-run to run the full pipeline.")
+        sys.exit(0)
 
     result = run_pipeline_sync(
         df=df,
