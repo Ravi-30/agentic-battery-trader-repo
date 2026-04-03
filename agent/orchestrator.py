@@ -117,6 +117,7 @@ async def run_pipeline(
 
     loop = asyncio.get_event_loop()
 
+    phase1_start = datetime.now()
     analyst_task = loop.run_in_executor(
         None,
         lambda: run_analyst(df=df, battery_id=battery_id, date=date, verbose=verbose),
@@ -129,11 +130,13 @@ async def run_pipeline(
     analyst_result: AnalystResult
     market_result: MarketResult
     analyst_result, market_result = await asyncio.gather(analyst_task, market_task)
+    phase1_elapsed = (datetime.now() - phase1_start).total_seconds()
 
     if verbose:
         print(
             f"  [Orchestrator] Analyst done ({len(analyst_result.tool_calls)} tool calls) | "
-            f"Market done ({len(market_result.tool_calls)} tool calls).\n"
+            f"Market done ({len(market_result.tool_calls)} tool calls) | "
+            f"Phase 1 elapsed: {phase1_elapsed:.1f}s\n"
         )
 
     analyst_findings = analyst_result.findings
@@ -146,6 +149,7 @@ async def run_pipeline(
     if verbose:
         print("  [Orchestrator] Passing merged findings to Writer Agent...\n")
 
+    phase2_start = datetime.now()
     draft = write_report(
         analyst_findings=analyst_findings,
         market_findings=market_findings,
@@ -153,6 +157,10 @@ async def run_pipeline(
         date=date,
         verbose=verbose,
     )
+
+    phase2_elapsed = (datetime.now() - phase2_start).total_seconds()
+    if verbose:
+        print(f"  [Orchestrator] Writer phase elapsed: {phase2_elapsed:.1f}s\n")
 
     # ------------------------------------------------------------------ #
     # Step 3: Critic revision loop                                        #
